@@ -18,7 +18,7 @@ const STORAGE_SCHEMA_VERSION = 1;
 
 // Utility to escape user-provided text so it is safe for insertion into innerHTML
 function escapeHtml(str) {
-    if (!str && str !== '') return '';
+    if (str === undefined || str === null) return '';
     return String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -32,27 +32,49 @@ function escapeHtml(str) {
  * visible=true => inner content is shown by default and button says "Hide"
  * visible=false => inner content hidden by default and button says "Reveal"
  */
-function buildPromptHTML(promptText, visible = true) {
-    const safe = escapeHtml(promptText);
+function buildPromptHTML(promptText, visible = false) {
+    const safe = escapeHtml(promptText || '');
     if (visible) {
         return `
       <div class="spoiler-container">
-        <button class="btn btn-reveal" onclick="toggleReveal(this)">Hide</button>
-        <div class="">
-          ${safe}
-        </div>
+        <button class="btn btn-reveal" onclick="toggleReveal(this)">Hide Question</button>
+        <div class="">${safe}</div>
       </div>
     `;
     } else {
         return `
       <div class="spoiler-container">
-        <button class="btn btn-reveal" onclick="toggleReveal(this)">Reveal</button>
-        <div class="hidden">
-          ${safe}
-        </div>
+        <button class="btn btn-reveal" onclick="toggleReveal(this)">Reveal Question</button>
+        <div class="hidden">${safe}</div>
       </div>
     `;
     }
+}
+
+
+function postProcessPrompts() {
+    document.querySelectorAll('.game-row').forEach(row => {
+        const iconEl = row.querySelector('.game-icon');
+        const isQuestion = iconEl && iconEl.textContent.trim() === '❓';
+        const cell = row.querySelector('.round-prompt');
+        if (!cell) return;
+
+        const currentHTML = (cell.innerHTML || '').trim();
+
+        // If prompt already contains reveal button or looks like HTML, leave it alone
+        if (!currentHTML) return;
+        if (currentHTML.includes('btn-reveal') || looksLikeHTML(currentHTML)) return;
+
+        // Only wrap plain text prompts when the row icon is ❓
+        if (isQuestion) {
+            const plainText = (cell.textContent || '').trim();
+            cell.innerHTML = buildPromptHTML(plainText, false); // visible by default (matches your sample)
+        }
+    });
+}
+
+function looksLikeHTML(s) {
+    return typeof s === 'string' && /<\s*\w+[^>]*>/.test(s);
 }
 
 
@@ -128,7 +150,6 @@ function loadRoundsFromStorage() {
 
         const rounds = JSON.parse(stored);
 
-
         if (!Array.isArray(rounds) || rounds.length === 0) {
             console.warn('Stored data invalid — using HTML');
             return false;
@@ -142,22 +163,26 @@ function loadRoundsFromStorage() {
         let maxId = 0;
         rounds.forEach(round => {
             if (round.id > maxId) maxId = round.id;
-            // If stored prompt looks like HTML, use it as-is.
-            // Otherwise wrap plain text into the spoiler UI so it matches your desired layout.
+
+            // Build promptHTML:
+            // - If round.prompt already includes HTML or reveal button, use it as-is
+            // - Else if gameIcon is ❓, wrap the plain text prompt into spoiler UI (visible)
+            // - Else escape plain text to avoid injection
             let promptHTML;
-            if (typeof round.prompt === 'string' && /<\s*\w+[^>]*>/.test(round.prompt)) {
-                // stored prompt already contains HTML - use it unchanged
+            if (typeof round.prompt === 'string' && (round.prompt.includes('btn-reveal') || looksLikeHTML(round.prompt))) {
                 promptHTML = round.prompt;
+            } else if (round.gameIcon && round.gameIcon.trim() === '❓') {
+                promptHTML = buildPromptHTML(round.prompt || '', false);
             } else {
-                // plain text -> wrap in spoiler (visible by default to match your example)
-                promptHTML = buildPromptHTML(round.prompt || '', true);
+                // plain text -> escape before inserting
+                promptHTML = escapeHtml(round.prompt || '');
             }
 
             const rowHTML = `
                 <tr data-row-id="${round.id}" class="game-row ${round.isCompleted ? 'completed' : ''}">
                     <td class="game-name">
                         <span class="game-icon">${round.gameIcon}</span>
-                        ${round.gameName}
+                        ${escapeHtml(round.gameName)}
                     </td>
                     <td class="round-prompt">
                         ${promptHTML}
@@ -188,10 +213,10 @@ function loadRoundsFromStorage() {
                         </label>
                     </td>
                     <td class="actions-cell">
-    <button class="btn btn-move" onclick="moveRowUp(${round.id})" aria-label="Move up">⬆️</button>
-    <button class="btn btn-move" onclick="moveRowDown(${round.id})" aria-label="Move down">⬇️</button>
-    <button class="btn btn-delete" onclick="deleteRow(${round.id})" aria-label="Delete round">🗑️</button>
-</td>
+                        <button class="btn btn-move" onclick="moveRowUp(${round.id})" aria-label="Move up">⬆️</button>
+                        <button class="btn btn-move" onclick="moveRowDown(${round.id})" aria-label="Move down">⬇️</button>
+                        <button class="btn btn-delete" onclick="deleteRow(${round.id})" aria-label="Delete round">🗑️</button>
+                    </td>
                 </tr>
             `;
             tableBody.insertAdjacentHTML('beforeend', rowHTML);
@@ -199,6 +224,10 @@ function loadRoundsFromStorage() {
 
         nextRowId = maxId + 1;
         console.log('✅ Rounds loaded from LocalStorage');
+
+        // After inserting rows, ensure any question rows with plain prompts are wrapped
+        postProcessPrompts();
+
         return true;
 
     } catch (e) {
@@ -658,7 +687,6 @@ function addNewRound() {
     const gameName = document.getElementById('newGameName').value.trim();
     const gameIcon = document.getElementById('newGameIcon').value.trim() || '🎮';
     const prompt = document.getElementById('newPrompt').value.trim();
-    const promptHTML = buildPromptHTML(prompt, true);
     const resourceType = document.getElementById('newResourceType').value;
     const resourcePath = document.getElementById('newResourcePath').value.trim();
     const timerMin = parseInt(document.getElementById('newTimerMin').value) || 0;
@@ -674,7 +702,18 @@ function addNewRound() {
         return;
     }
 
-    // Generate resource HTML based on type
+    // Determine prompt HTML:
+    // - If the chosen icon is the question emoji, wrap the prompt in the spoiler UI (visible by default)
+    // - Otherwise, store escaped plain text (no reveal wrapper)
+    let promptHTML = '';
+    if (gameIcon === '❓') {
+        promptHTML = buildPromptHTML(prompt, false);
+    } else {
+        // store escaped plain text (keeps innerHTML safe)
+        promptHTML = escapeHtml(prompt);
+    }
+
+    // Generate resource HTML based on type (existing logic)...
     let resourceHTML = '';
     switch (resourceType) {
         case 'audio':
@@ -713,26 +752,25 @@ function addNewRound() {
             `;
             break;
         case 'answer':
-            // resourcePath holds the answer text; escape it to avoid injecting HTML
-            const safeAnswer = escapeHtml(resourcePath);
+            // Use escaped answer text inside reveal UI
             resourceHTML = `
-        <div class="spoiler-answer">
-            <button class="btn btn-reveal" onclick="toggleReveal(this)">Reveal Answer</button>
-            <span class="answer hidden">${safeAnswer}</span>
-        </div>
-    `;
+                <div class="spoiler-answer">
+                    <button class="btn btn-reveal" onclick="toggleReveal(this)">Reveal Answer</button>
+                    <span class="answer hidden">${escapeHtml(resourcePath)}</span>
+                </div>
+            `;
             break;
         default:
             resourceHTML = '<span class="text-only-badge">📝 Text Only</span>';
     }
 
-    // Create new row HTML
+    // Create new row HTML (use promptHTML)
     const rowId = nextRowId++;
     const newRowHTML = `
         <tr data-row-id="${rowId}" class="game-row">
             <td class="game-name">
                 <span class="game-icon">${gameIcon}</span>
-                ${gameName}
+                ${escapeHtml(gameName)}
             </td>
             <td class="round-prompt">
                 ${promptHTML}
@@ -774,7 +812,7 @@ function addNewRound() {
     const tableBody = document.getElementById('tableBody');
     tableBody.insertAdjacentHTML('beforeend', newRowHTML);
 
-    // Clear form and hide
+    // Clear form and hide (same logic as before)
     document.getElementById('newGameName').value = '';
     document.getElementById('newPrompt').value = '';
     document.getElementById('newResourcePath').value = '';
@@ -784,13 +822,11 @@ function addNewRound() {
     toggleResourceInput();
     toggleAddRoundForm();
 
-    // Update progress
+    // Update progress and save
     updateProgress();
-
-    // *** SAVE TO LocalStorage ***
     saveRoundsToStorage();
 
-    // Scroll to new row
+    // Scroll to new row visual feedback (same as before)
     const newRow = document.querySelector(`tr[data-row-id="${rowId}"]`);
     newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
     newRow.style.outline = '2px solid #3fb950';
