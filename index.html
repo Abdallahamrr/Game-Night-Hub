@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Family Game Night Hub - An offline control panel for managing game nights with timers, media, and progress tracking">
+    <title>🎮 Family Game Night Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- ==========================================
+         HEADER SECTION
+         Contains title and optional global timer
+    ========================================== -->
+    <header class="header">
+        <div class="header-content">
+            <h1>🎮 Family Game Night Hub</h1>
+            <p class="subtitle">Your offline game control center</p>
+        </div>
+        <!-- Global timer display showing active timers -->
+        <div class="global-timer" id="globalTimer">
+            <span class="timer-icon">⏱️</span>
+            <span id="activeTimerDisplay">No active timer</span>
+        </div>
+    </header>
+
+    <!-- ==========================================
+         MAIN CONTENT
+         Contains the game rounds table
+    ========================================== -->
+    <main class="main-content">
+        <!-- ==========================================
+             ADD NEW ROUND SECTION
+             Form to add rounds without editing HTML
+        ========================================== -->
+        <div class="add-round-section" id="addRoundSection">
+            <button class="btn btn-add-round" onclick="toggleAddRoundForm()">
+                ➕ Add New Round
+            </button>
+            <div class="add-round-form" id="addRoundForm" style="display: none;">
+                <h3>Add a New Round</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="newGameName">Game Name</label>
+                        <input type="text" id="newGameName" placeholder="e.g., Charades, Trivia" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newGameIcon">Icon</label>
+                        <select id="newGameIcon">
+                            <option value="🎭">🎭 Theater Masks</option>
+                            <option value="🎬">🎬 Movie Clapper</option>
+                            <option value="🎵">🎵 Music Note</option>
+                            <option value="👀">👀 Eyes</option>
+                            <option value="❓">❓ Question</option>
+                            <option value="🖼️">🖼️ Picture Frame</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPrompt">Round / Prompt</label>
+                        <input type="text" id="newPrompt" placeholder="e.g., Act out: Something fun" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newResourceType">Resource Type</label>
+                        <select id="newResourceType" onchange="toggleResourceInput()">
+                            <option value="text">📝 Text Only</option>
+                            <option value="audio">🎵 Audio</option>
+                            <option value="image">🖼️ Image</option>
+                            <option value="answer">📝 Answer</option>
+                        </select>
+                    </div>
+                    <div class="form-group resource-path-group" id="resourcePathGroup" style="display: none;">
+                        <label for="newResourcePath">Resource Path</label>
+                        <input type="text" id="newResourcePath" placeholder="e.g., audio/my-clip.mp3">
+                    </div>
+                    <div class="form-group">
+                        <label>Default Timer</label>
+                        <div class="timer-input-group">
+                            <input type="number" id="newTimerMin" value="1" min="0" max="60" placeholder="1">
+                            <span>min</span>
+                            <input type="number" id="newTimerSec" value="0" min="0" max="59" placeholder="0">
+                            <span>sec</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-start" onclick="addNewRound()">✅ Add Round</button>
+                    <button class="btn btn-reset" onclick="toggleAddRoundForm()">❌ Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="game-table" id="gameTable">
+                <thead>
+                    <tr>
+                        <th>Game</th>
+                        <th>Round / Prompt</th>
+                        <th>Resource</th>
+                        <th>Timer</th>
+                        <th>Done</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- ==========================================
+                         ROUND 1: Charades - Text Only
+                    ========================================== -->
+                    <tr data-row-id="1" class="game-row">
+                        <td class="game-name">
+                            <span class="game-icon">🎭</span>
+                            Charades
+                        </td>
+                        <td class="round-prompt">
+                            <strong>Act Out</strong>
+                        </td>
+                        <td class="resource-cell">
+                            <span class="text-only-badge">📝 Text Only</span>
+                        </td>
+                        <td class="timer-cell">
+                            <div class="timer-controls">
+                                <div class="timer-input-group">
+                                    <input type="number" class="timer-input timer-min" value="2" min="0" max="60"
+                                        aria-label="Timer minutes">
+                                    <span class="timer-label">m</span>
+                                    <input type="number" class="timer-input timer-sec" value="0" min="0" max="59"
+                                        aria-label="Timer seconds">
+                                    <span class="timer-label">s</span>
+                                </div>
+                                <div class="timer-display" id="timer-1">00:00</div>
+                                <div class="timer-buttons">
+                                    <button class="btn btn-start" onclick="startTimer(1)"
+                                        aria-label="Start timer">▶️</button>
+                                    <button class="btn btn-pause" onclick="pauseTimer(1)"
+                                        aria-label="Pause timer">⏸️</button>
+                                    <button class="btn btn-reset" onclick="resetTimer(1)"
+                                        aria-label="Reset timer">🔄</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="done-cell">
+                            <label class="checkbox-container">
+                                <input type="checkbox" class="done-checkbox" onchange="toggleDone(1, this)">
+                                <span class="checkmark">✓</span>
+                            </label>
+                        </td>
+                        <td class="actions-cell">
+                            <button class="btn btn-move" onclick="moveRowUp(1)" aria-label="Move up">⬆️</button>
+                            <button class="btn btn-move" onclick="moveRowDown(1)" aria-label="Move down">⬇️</button>
+                            <button class="btn btn-delete" onclick="deleteRow(1)" aria-label="Delete round">🗑️</button>
+                        </td>
+                    </tr>
+
+                    <!-- ==========================================
+                         ROUND 2: Guess the Movie - Audio
+                    ========================================== -->
+                    <tr data-row-id="2" class="game-row">
+                        <td class="game-name">
+                            <span class="game-icon">🎬</span>
+                            Guess the Movie
+                        </td>
+                        <td class="round-prompt">
+                            <strong>Listen:</strong> Identify the movie from its soundtrack
+                        </td>
+                        <td class="resource-cell">
+                            <div class="audio-container">
+                                <audio controls class="audio-player">
+                                    <source src="audio/erhab.mp3" type="audio/mpeg">
+                                    <span class="fallback-message">🎵 Add audio file:
+                                        audio/erhab.mp3</span>
+                                </audio>
+
+                            </div>
+                        </td>
+                        <td class="timer-cell">
+                            <div class="timer-controls">
+                                <div class="timer-input-group">
+                                    <input type="number" class="timer-input timer-min" value="0" min="0" max="60"
+                                        aria-label="Timer minutes">
+                                    <span class="timer-label">m</span>
+                                    <input type="number" class="timer-input timer-sec" value="30" min="0" max="59"
+                                        aria-label="Timer seconds">
+                                    <span class="timer-label">s</span>
+                                </div>
+                                <div class="timer-display" id="timer-2">00:00</div>
+                                <div class="timer-buttons">
+                                    <button class="btn btn-start" onclick="startTimer(2)"
+                                        aria-label="Start timer">▶️</button>
+                                    <button class="btn btn-pause" onclick="pauseTimer(2)"
+                                        aria-label="Pause timer">⏸️</button>
+                                    <button class="btn btn-reset" onclick="resetTimer(2)"
+                                        aria-label="Reset timer">🔄</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="done-cell">
+                            <label class="checkbox-container">
+                                <input type="checkbox" class="done-checkbox" onchange="toggleDone(2, this)">
+                                <span class="checkmark">✓</span>
+                            </label>
+                        </td>
+                        <td class="actions-cell">
+                            <button class="btn btn-move" onclick="moveRowUp(2)" aria-label="Move up">⬆️</button>
+                            <button class="btn btn-move" onclick="moveRowDown(2)" aria-label="Move down">⬇️</button>
+                            <button class="btn btn-delete" onclick="deleteRow(2)" aria-label="Delete round">🗑️</button>
+                        </td>
+                    </tr>
+
+                    <!-- ==========================================
+                         ROUND 3: Guess the Actor - Image
+                    ========================================== -->
+                    <tr data-row-id="3" class="game-row">
+                        <td class="game-name">
+                            <span class="game-icon">👀</span>
+                            Guess the Actor
+                        </td>
+                        <td class="round-prompt">
+                            <strong>Look:</strong> Identify the actor from their eyes only
+                        </td>
+                        <td class="resource-cell">
+                            <div class="image-container">
+                                <img src="images/jennifer-lawrence-eyes.jpg" alt="Mystery actor's eyes"
+                                    class="thumbnail" onclick="openImageModal(this.src, 'Mystery actor\'s eyes')"
+                                    onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+
+
+                        </td>
+                        <td class="timer-cell">
+                            <div class="timer-controls">
+                                <div class="timer-input-group">
+                                    <input type="number" class="timer-input timer-min" value="0" min="0" max="60"
+                                        aria-label="Timer minutes">
+                                    <span class="timer-label">m</span>
+                                    <input type="number" class="timer-input timer-sec" value="15" min="0" max="59"
+                                        aria-label="Timer seconds">
+                                    <span class="timer-label">s</span>
+                                </div>
+                                <div class="timer-display" id="timer-3">00:00</div>
+                                <div class="timer-buttons">
+                                    <button class="btn btn-start" onclick="startTimer(3)"
+                                        aria-label="Start timer">▶️</button>
+                                    <button class="btn btn-pause" onclick="pauseTimer(3)"
+                                        aria-label="Pause timer">⏸️</button>
+                                    <button class="btn btn-reset" onclick="resetTimer(3)"
+                                        aria-label="Reset timer">🔄</button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="done-cell">
+                            <label class="checkbox-container">
+                                <input type="checkbox" class="done-checkbox" onchange="toggleDone(3, this)">
+                                <span class="checkmark">✓</span>
+                            </label>
+                        </td>
+                        <td class="actions-cell">
+                            <button class="btn btn-move" onclick="moveRowUp(3)" aria-label="Move up">⬆️</button>
+                            <button class="btn btn-move" onclick="moveRowDown(3)" aria-label="Move down">⬇️</button>
+                            <button class="btn btn-delete" onclick="deleteRow(3)" aria-label="Delete round">🗑️</button>
+                        </td>
+                    </tr>
+
+
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Progress bar showing completed rounds -->
+        <div class="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-text" id="progressText">0 of 5 rounds completed</span>
+        </div>
+    </main>
+
+    <!-- ==========================================
+         IMAGE MODAL
+         Opens when clicking on image thumbnails
+    ========================================== -->
+    <div class="modal" id="imageModal" onclick="closeImageModal(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeImageModal()" aria-label="Close modal">&times;</button>
+            <img id="modalImage" src="" alt="Full size image">
+            <p class="modal-caption" id="modalCaption"></p>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         FOOTER
+    ========================================== -->
+    <footer class="footer">
+        <p>🎲 Family Game Night Hub • Have fun! 🎉</p>
+    </footer>
+
+    <!-- JavaScript file for all interactive functionality -->
+    <script src="script.js"></script>
+</body>
+
+</html>
