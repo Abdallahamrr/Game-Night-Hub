@@ -15,6 +15,177 @@
 
 const STORAGE_SCHEMA_VERSION = 1;
 
+// Scoreboard for two teams (persistent, minimal UI)
+// Add to your main JS file and call initScoreboard() inside DOMContentLoaded.
+
+const SCORE_STORAGE_KEY = 'gameNightScores';
+
+let scoreboardState = {
+    teamA: { name: 'Team A', score: 0 },
+    teamB: { name: 'Team B', score: 0 }
+};
+
+function loadScoresFromStorage() {
+    try {
+        const raw = localStorage.getItem(SCORE_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.teamA && parsed.teamB) {
+            scoreboardState = parsed;
+        }
+    } catch (e) {
+        console.warn('Could not load scoreboard from storage:', e);
+    }
+}
+
+function saveScoresToStorage() {
+    try {
+        localStorage.setItem(SCORE_STORAGE_KEY, JSON.stringify(scoreboardState));
+    } catch (e) {
+        console.warn('Could not save scoreboard to storage:', e);
+    }
+}
+
+function renderScoreboard() {
+    const container = document.getElementById('scoreboard');
+    if (!container) return;
+
+    container.innerHTML = `
+    <div class="scoreboard-inner" style="display:flex;gap:12px;align-items:center; background-color:#1e2d45;">
+      <div class="team" data-team="teamA" style="text-align:center; color:#d33;">
+        <div>
+          <input id="teamAName" class="team-name-input" value="${escapeHtml(scoreboardState.teamA.name)}" style="width:110px;text-align:center; font-size:22px; background-color: #fcef91;" aria-label="Team A name">
+        </div>
+        <div style="font-size:40px;font-weight:700;margin:6px 0; background:#f28c8c; color:#fff;" id="teamAScore">${scoreboardState.teamA.score}</div>
+        <div style="display:flex;gap:6px;justify-content:center;">
+          <button style=" background-color: #8bca84; font-size:22px;" class="btn btn-score" data-action="inc" data-team="teamA" aria-label="Team A +1">+1</button>
+          <button style=" background-color: #f85149; font-size:22px;" class="btn btn-score" data-action="dec" data-team="teamA" aria-label="Team A -1">-1</button>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <button id="swapTeamsBtn" class="btn" aria-label="Swap teams">⇄ Swap</button>
+        <button id="resetScoresBtn" class="btn" aria-label="Reset scores" style="margin-top:6px;">Reset</button>
+      </div>
+
+      <div class="team" data-team="teamB" style="text-align:center; color:#33d;">
+        <div>
+          <input id="teamBName" class="team-name-input" value="${escapeHtml(scoreboardState.teamB.name)}" style="width:110px;text-align:center; font-size:22px; background-color: #fcef91;" aria-label="Team B name">
+        </div>
+        <div style="font-size:40px;font-weight:700;margin:6px 0;background:#8cc7f2; color:#fff;" id="teamBScore">${scoreboardState.teamB.score}</div>
+        <div style="display:flex;gap:6px;justify-content:center;">
+          <button style=" background-color: #8bca84; font-size:22px;" class="btn btn-score" data-action="inc" data-team="teamB" aria-label="Team B +1">+1</button>
+          <button style=" background-color: #f85149; font-size:22px;"class="btn btn-score" data-action="dec" data-team="teamB" aria-label="Team B -1">-1</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+    // Hook buttons via delegation
+    container.querySelectorAll('.btn-score').forEach(btn => {
+        btn.onclick = function () {
+            const team = this.dataset.team;
+            const action = this.dataset.action;
+            if (action === 'inc') adjustScore(team, +1);
+            if (action === 'dec') adjustScore(team, -1);
+        };
+    });
+
+    const teamANameInput = document.getElementById('teamAName');
+    const teamBNameInput = document.getElementById('teamBName');
+
+    teamANameInput.onchange = () => {
+        scoreboardState.teamA.name = teamANameInput.value.trim() || 'Team A';
+        saveScoresToStorage();
+        renderScoreboard(); // update display (to reflect escaped name)
+    };
+    teamBNameInput.onchange = () => {
+        scoreboardState.teamB.name = teamBNameInput.value.trim() || 'Team B';
+        saveScoresToStorage();
+        renderScoreboard();
+    };
+
+    const swapBtn = document.getElementById('swapTeamsBtn');
+    const resetBtn = document.getElementById('resetScoresBtn');
+
+    swapBtn.onclick = swapTeams;
+    resetBtn.onclick = () => resetScores(true);
+}
+
+function adjustScore(teamKey, delta) {
+    if (!scoreboardState[teamKey]) return;
+    scoreboardState[teamKey].score = Math.max(0, (parseInt(scoreboardState[teamKey].score, 10) || 0) + delta);
+    saveScoresToStorage();
+
+    const el = document.getElementById(teamKey === 'teamA' ? 'teamAScore' : 'teamBScore');
+    if (el) {
+        el.textContent = scoreboardState[teamKey].score;
+
+        // Set flash color
+        el.style.transition = 'background-color 0.3s';
+        el.style.backgroundColor = delta > 0 ? 'green' : 'red';
+
+        // Revert to team color after a short delay
+        setTimeout(() => {
+            el.style.backgroundColor = teamKey === 'teamA' ? '#f28c8c' : '#8cc7f2'; // normal team background
+        }, 400);
+    }
+}
+
+
+
+function resetScores(confirmBefore = false) {
+    if (confirmBefore && !confirm('Reset both team scores to 0?')) return;
+    scoreboardState.teamA.score = 0;
+    scoreboardState.teamB.score = 0;
+    saveScoresToStorage();
+    renderScoreboard();
+}
+
+function swapTeams() {
+    const tmp = JSON.parse(JSON.stringify(scoreboardState.teamA));
+    scoreboardState.teamA = JSON.parse(JSON.stringify(scoreboardState.teamB));
+    scoreboardState.teamB = tmp;
+    saveScoresToStorage();
+    renderScoreboard();
+}
+
+function initScoreboard() {
+    loadScoresFromStorage();
+    renderScoreboard();
+    // Expose for quick console access
+    window.scoreboard = {
+        state: scoreboardState,
+        adjustScore,
+        resetScores,
+        swapTeams,
+        save: saveScoresToStorage,
+        load: loadScoresFromStorage,
+        render: renderScoreboard
+    };
+}
+
+// helper escapeHtml (reuse if already defined in your app)
+function escapeHtml(str) {
+    if (str === undefined || str === null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// NOTE:
+// Call initScoreboard() inside your DOMContentLoaded init block, e.g.:
+//
+// document.addEventListener('DOMContentLoaded', function () {
+//   ...
+//   updateProgress();
+//   postProcessPrompts && postProcessPrompts();
+//   initScoreboard();   // <--- add this line
+//   ...
+// });
 
 // Utility to escape user-provided text so it is safe for insertion into innerHTML
 function escapeHtml(str) {
@@ -1045,6 +1216,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initialize progress bar
     updateProgress();
+    initScoreboard();
 
     // Add visual feedback to table rows on hover
     const rows = document.querySelectorAll('.game-row');

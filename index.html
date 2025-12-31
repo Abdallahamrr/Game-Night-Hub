@@ -15,17 +15,30 @@
          HEADER SECTION
          Contains title and optional global timer
     ========================================== -->
-    <header class="header">
-        <div class="header-content">
-            <h1>🎮 Family Game Night Hub</h1>
-            <p class="subtitle">Your offline game control center</p>
+    <header class="header"
+        style="position:relative; position:sticky; padding:12px 16px; box-sizing:border-box;">
+        <!-- Top row: title left, timer right -->
+        <div class="header-top" style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+            <h1 style="margin:0; font-size:1.25rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+                🎮 Family Game Night Hub
+            </h1>
+
+            <div class="global-timer" id="globalTimer" style="display:flex; align-items:center; gap:8px;">
+                <div id="activeTimerDisplay"
+                    style="display:flex; align-items:center; gap:8px; background:#0f1724; color:#ffffff; padding:6px 10px; border-radius:8px; font-weight:600; box-shadow:0 2px 6px rgba(0,0,0,0.15);">
+                    <span class="timer-icon" style="font-size:1rem;">⏱️</span>
+                    <span style="white-space:nowrap;">No active timer</span>
+                </div>
+            </div>
         </div>
-        <!-- Global timer display showing active timers -->
-        <div class="global-timer" id="globalTimer">
-            <span class="timer-icon">⏱️</span>
-            <span id="activeTimerDisplay">No active timer</span>
+
+        <!-- Centered scoreboard slightly below the top row -->
+        <div id="scoreboard" class="scoreboard" aria-label="Team scoreboard"
+            style="margin:16px auto 0; display:flex; justify-content:center; align-items:center; width:100%; max-width:800px;">
+            <!-- Scoreboard content injected by JS will appear centered here -->
         </div>
     </header>
+
 
     <!-- ==========================================
          MAIN CONTENT
